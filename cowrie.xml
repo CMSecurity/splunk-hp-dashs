@@ -1,0 +1,351 @@
+<form>
+  <label>Cowrie Dash</label>
+  <fieldset submitButton="false">
+    <input type="time" token="mselect" searchWhenChanged="true">
+      <label>Map &amp; Connection Selector</label>
+      <default>
+        <earliest>-15m</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="time" token="spicker" searchWhenChanged="true">
+      <label>Statistics Picker</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="sensor" searchWhenChanged="true">
+      <label>Sensor</label>
+      <choice value="*">all</choice>
+      <choice value="cctv1">cctv1</choice>
+      <choice value="derp">derp</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <viz type="missile_map.missile_map">
+        <search>
+          <query>index=honeypots sensor=$sensor$ | spath eventid | search eventid="cowrie.session.connect" 
+| dedup src_ip 
+| iplocation src_ip 
+| rename lat as "start_lat", lon as "start_lon"
+| eval end_lat=case(host=="v2201912109582104170", "49.0047")
+| eval end_lon=case(host=="v2201912109582104170", "8.3858")
+| eval color=case(host=="v2201912109582104170", "#24bc9f")
+| table start_lat,start_lon,end_lat,end_lon,color</query>
+          <earliest>$mselect.earliest$</earliest>
+          <latest>$mselect.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="height">510</option>
+        <option name="missile_map.missile_map.lineThickness">1</option>
+        <option name="missile_map.missile_map.mapLatitude">22</option>
+        <option name="missile_map.missile_map.mapLongitude">10</option>
+        <option name="missile_map.missile_map.mapZoom">2.0</option>
+        <option name="missile_map.missile_map.staticColor">#FF0000</option>
+        <option name="refresh.display">progressbar</option>
+      </viz>
+    </panel>
+    <panel>
+      <chart>
+        <title>SSH Client Versions (Dedup by Src IP)</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ source=cowrie
+| spath eventid | search eventid="cowrie.client.version" 
+| dedup src_ip 
+| eval version = replace(version, "^b'","'")
+| stats count by version 
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">right</option>
+        <option name="height">460</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="trellis.enabled">0</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Latest file downloads (deduplicated, excluding up.txt and google)</title>
+        <search>
+          <query>index=honeypots sensor=* eventid="cowrie.session.file_download" destfile!="/tmp/up.txt" destfile!="/tmp/index.html"
+| table src_ip, session, url, shasum, host, _time, message, destfile 
+| join 
+    [search index=honeypots eventid="cowrie.session.file_download" 
+     | table shasum
+     | stats count by shasum ]
+| join session 
+    [search index=honeypots eventid="cowrie.login.success"
+    |  table session, username, password]
+| eval Source=case(isnotnull(url), url, match(message, "Saved stdin contents"), "stdin (SSH)", match(message, "Saved redir contents with"), "stdin (Telnet)")
+| dedup shasum sortby - _time
+| table Source, count, shasum, destfile, username, password, src_ip, host, session, _time
+| rename count AS "# times seen" shasum AS "SHA256 Hash" destfile as "Target Filename" username AS "User" password AS "Password" host AS "Sensor" session AS "Session" _time AS "Timestamp" src_ip AS "Source IP"| eval Time=strftime(Timestamp,"%d.%m.%y %H:%M:%S") | fields - Timestamp 
+| sort - Time</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="URL"></condition>
+          <condition field="SHA256 Hash">
+            <link target="_blank">https://www.virustotal.com/gui/file/$click.value2$/detection</link>
+          </condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Sensor"></condition>
+          <condition field="Session">
+            <link target="_blank">/app/search/search?q=search%20index%3Dhoneypots%20session%3D$row.Session$</link>
+          </condition>
+          <condition field="Time"></condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Payload filename ratios</title>
+        <search>
+          <query>index=honeypots sensor=* eventid="cowrie.session.file_download"
+| table destfile
+| stats count by destfile
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">304</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Payload upload ratios</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ eventid="cowrie.session.file_download" 
+| stats count by shasum
+| rename shasum as "SHA256 Hash"
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">302</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Dedup connection requests</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ | spath eventid | search eventid="cowrie.session.connect" 
+| dedup src_ip
+| eval protocol=case(system == "cowrie.ssh.factory.CowrieSSHFactory", "SSH", system == "cowrie.telnet.transport.HoneyPotTelnetFactory", "Telnet", system == "cowrie.telnet.factory.HoneyPotTelnetFactory", "Telnet")
+| stats count by protocol</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">305</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Latest (dedup) connections</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ | spath eventid | search eventid="cowrie.session.connect" 
+| dedup src_ip 
+| iplocation src_ip 
+| rename src_ip as "Source IP" _time as "Timestamp"
+| eval Protocol=case(match(system,"CowrieSSHFactory"), "SSH", match(system,"HoneyPotTelnetFactory"), "Telnet")
+| eval Time=strftime(Timestamp,"%d.%m.%y %H:%M:%S")
+| table Time, "Source IP", City, Country, host, Protocol
+| rename host as "Sensor"</query>
+          <earliest>$mselect.earliest$</earliest>
+          <latest>$mselect.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Lates Password Attempts</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ eventid=cowrie.login.failed OR eventid=cowrie.login.success
+| eval Time=strftime(_time,"%d.%m.%y %H:%M:%S")
+| eval Action=if(eventid=="cowrie.login.failed", "Denied", "Allowed")
+| table Time, src_ip, host, username, password, Action
+| rename src_ip as "Source IP", host as "Sensor", username as "User", password as "Pass"
+| sort - Time</query>
+          <earliest>$mselect.earliest$</earliest>
+          <latest>$mselect.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Username logins succeeded</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ | spath eventid | search eventid="cowrie.login.success" 
+| stats count by username 
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">303</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Username Logins failed</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$
+| spath eventid | search eventid="cowrie.login.failed"
+| stats count by username 
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">302</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Password logins success</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$
+| spath eventid | search eventid="cowrie.login.success"
+| stats count by password 
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">301</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Password logins failed</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$
+| spath eventid | search eventid="cowrie.login.failed"
+| stats count by password 
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">302</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Login Pairs: Success</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$
+| spath eventid | search eventid="cowrie.login.success"
+| stats count by username,password 
+| eval "Login String"=username.":".password
+| table "Login String", count
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Login Pairs: Failed</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$
+| spath eventid | search eventid="cowrie.login.failed"
+| stats count by username,password 
+| eval "Login String"=username.":".password
+| table "Login String", count
+| sort - count</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top 10 connection count by IPs</title>
+        <search>
+          <query>index=honeypots sensor=$sensor$ | spath eventid | search eventid="cowrie.session.connect" 
+| stats count by src_ip
+| iplocation src_ip 
+| lookup local=t asn ip AS src_ip
+| rename count as Count src_ip as "Source IP" asn as "ASN" autonomous_system as "ASN Name" 
+| table Count, "Source IP", City, Country, ASN, "ASN Name"
+| sort - Count
+| head 10</query>
+          <earliest>$spicker.earliest$</earliest>
+          <latest>$spicker.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="City"></condition>
+          <condition field="Country"></condition>
+          <condition field="ASN">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="ASN Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+</form>

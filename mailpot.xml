@@ -1,0 +1,106 @@
+<form>
+  <label>Mailpot Dash</label>
+  <fieldset submitButton="false">
+    <input type="time" token="sharetime">
+      <label>Time Select</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <viz type="missile_map.missile_map">
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json"
+| spath eventid
+| search eventid="mailhon.ehlo"
+| dedup src_ip 
+| iplocation src_ip 
+| rename lat as "start_lat", lon as "start_lon"
+| eval end_lat=case(host=="v2201912109582104170", "49.0047")
+| eval end_lon=case(host=="v2201912109582104170", "8.3858")
+| eval color=case(host=="v2201912109582104170", "#24bc9f")
+| table start_lat,start_lon,end_lat,end_lon,color</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="height">510</option>
+        <option name="missile_map.missile_map.lineThickness">1</option>
+        <option name="missile_map.missile_map.mapLatitude">22</option>
+        <option name="missile_map.missile_map.mapLongitude">10</option>
+        <option name="missile_map.missile_map.mapZoom">2.0</option>
+        <option name="missile_map.missile_map.staticColor">#FF0000</option>
+        <option name="refresh.display">progressbar</option>
+      </viz>
+    </panel>
+    <panel>
+      <chart>
+        <title>EHLO Hostnames</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json" eventid="mailhon.ehlo" 
+| stats count by hostname</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">460</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Eventid Distribution</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json" 
+| stats count by eventid</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <table>
+        <title>Latest (dedup) connections</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json" 
+| spath eventid 
+| search eventid="mailhon.ehlo"
+| dedup src_ip
+| iplocation src_ip
+| rename src_ip as "Source IP" hostname as "EHLO Hostname"
+| eval Time=strftime(_time,"%d.%m.%y %H:%M:%S")
+| table Time, "Source IP", "EHLO Hostname", City, Country</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <event>
+        <title>Latest Events</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="list.drilldown">none</option>
+      </event>
+    </panel>
+  </row>
+</form>

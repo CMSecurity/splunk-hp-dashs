@@ -1,0 +1,419 @@
+<form>
+  <label>Main Dash</label>
+  <fieldset submitButton="false">
+    <input type="time" token="sharetime">
+      <label>Datetime select</label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <map>
+        <title>Overall Connection Sources</title>
+        <search>
+          <query>index=honeypots eventid="cowrie.session.connect" OR eventid="mailhon.ehlo" OR eventid="adbhoney.session.connect" OR eventId="obscura.http.request"
+| dedup src_ip
+| iplocation src_ip
+| eval protocol=case(system == "cowrie.ssh.factory.CowrieSSHFactory", "SSH", system == "cowrie.telnet.transport.HoneyPotTelnetFactory", "Telnet", system == "cowrie.telnet.factory.HoneyPotTelnetFactory", "Telnet", eventid == "mailhon.ehlo", "SMTP", eventid == "adbhoney.session.connect", "ADB", eventId="obscura.http.request", "HTTP")
+| geostats latfield=lat longfield=lon count by protocol</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="height">400</option>
+        <option name="mapping.map.center">(4,17)</option>
+        <option name="mapping.map.zoom">2</option>
+        <option name="mapping.type">marker</option>
+      </map>
+    </panel>
+    <panel>
+      <chart>
+        <title>Overall Connection Distribution</title>
+        <search>
+          <query>index=honeypots eventid="cowrie.session.connect" OR eventid="mailhon.ehlo" OR eventid="adbhoney.session.connect" OR eventId="obscura.http.request"
+| dedup src_ip
+| eval protocol=case(system == "cowrie.ssh.factory.CowrieSSHFactory", "SSH", system == "cowrie.telnet.transport.HoneyPotTelnetFactory", "Telnet", system == "cowrie.telnet.factory.HoneyPotTelnetFactory", "Telnet", eventid == "mailhon.ehlo", "SMTP", eventid == "adbhoney.session.connect", "ADB", eventId="obscura.http.request", "HTTP")
+| stats count by protocol</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">399</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <single>
+        <title>Cowrie Sessions (this hour)</title>
+        <search>
+          <query>index=honeypots sensor=v2201912109582104170 | spath eventid | search eventid="cowrie.session.connect" 
+| timechart span=1h count</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">0</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="trendInterval">-4h</option>
+        <option name="useColors">0</option>
+        <drilldown>
+          <link target="_blank">/app/search/cowrie_dash</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>ADBHoney Sessions (this hour)</title>
+        <search>
+          <query>index=honeypots  source = /home/skringle/ADBHoney/logs/adbhoney.json   | spath eventid | search eventid="adbhoney.session.connect" 
+| timechart span=1h count</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="showTrendIndicator">0</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="trendInterval">-4h</option>
+        <option name="useColors">0</option>
+        <drilldown>
+          <link target="_blank">/app/search/adb_dash</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Mailpot Sessions (this hour)</title>
+        <search>
+          <query>index=honeypots  source = /home/skringle/mailhon/mailpot/mails.json  | spath eventid | search eventid="mailhon.ehlo" 
+| timechart span=1h count</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="showTrendIndicator">0</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="trendInterval">-4h</option>
+        <option name="useColors">0</option>
+        <drilldown>
+          <link target="_blank">/app/search/mailpot</link>
+        </drilldown>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>CameraObscura unique visitors (this hour)</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/CameraObscura/obscura.json"| spath eventId | search eventId="obscura.http.request"
+| dedup src_ip 
+| timechart span=1h count</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="drilldown">all</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="showTrendIndicator">0</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="trendInterval">-4h</option>
+        <option name="useColors">0</option>
+        <drilldown>
+          <link target="_blank">/app/search/camera_obscura_dash</link>
+        </drilldown>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Overall AS Source Top 10</title>
+        <search>
+          <query>index=honeypots eventid="cowrie.session.connect" OR eventid="mailhon.ehlo" OR eventid="adbhoney.session.connect" OR eventId="obscura.http.request"
+| table src_ip
+| lookup local=t asn ip AS src_ip
+| stats count by asn, autonomous_system
+| rename autonomous_system as "AS Name" asn as "AS" count as Count
+| table Count, AS, "AS Name"
+| sort - Count
+| head 10</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="AS">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="AS Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>Overall AS Sources</title>
+        <search>
+          <query>index=honeypots eventid="cowrie.session.connect" OR eventid="mailhon.ehlo" OR eventid="adbhoney.session.connect" OR eventId="obscura.http.request"
+| table src_ip
+| lookup local=t asn ip AS src_ip
+| stats count by autonomous_system
+| sort - count</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="height">349</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Cowrie Source Top 5</title>
+        <search>
+          <query>index=honeypots source=cowrie | spath eventid | search eventid="cowrie.session.connect" 
+| stats count by src_ip
+| iplocation src_ip 
+| lookup local=t asn ip AS src_ip
+| rename count as Count src_ip as "Source IP" autonomous_system as "AS Name" asn as "AS"
+| table Count, "Source IP", Country, AS, "AS Name"
+| sort - Count
+| head 5</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Country"></condition>
+          <condition field="AS">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="AS Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>ADBHoney Source Top 5</title>
+        <search>
+          <query>index=honeypots source=/home/skringle/ADBHoney/logs/adbhoney.json  | spath eventid | search eventid="adbhoney.session.connect" 
+| stats count by src_ip
+| iplocation src_ip 
+| lookup local=t asn ip AS src_ip
+| rename count as Count src_ip as "Source IP" autonomous_system as "AS Name" asn as "AS"
+| table Count, "Source IP", Country, AS, "AS Name"
+| sort - Count
+| head 5</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Country"></condition>
+          <condition field="AS">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="AS Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Mailpot Source Top 5</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/mailhon/mailpot/mails.json"  | spath eventid | search eventid="mailhon.ehlo" 
+| stats count by src_ip
+| iplocation src_ip 
+| lookup local=t asn ip AS src_ip
+| rename count as Count src_ip as "Source IP" autonomous_system as "AS Name" asn as "AS"
+| table Count, "Source IP", Country, AS, "AS Name"
+| sort - Count
+| head 5</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Country"></condition>
+          <condition field="AS">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="AS Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>CameraObscura latest 5</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/CameraObscura/obscura.json"| spath eventId | search eventId="obscura.http.request"
+| dedup src_ip 
+| iplocation src_ip 
+| lookup local=t asn ip AS src_ip
+| rename src_ip as "Source IP" autonomous_system as "AS Name" asn as "AS"
+| eval Time=strftime(_time,"%d.%m.%y %H:%M:%S")
+| table Time, "Source IP", Country, AS, "AS Name"
+| sort - _time
+| head 5</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="Count"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Country"></condition>
+          <condition field="AS">
+            <link target="_blank">https://viz.greynoise.io/query/?gnql=metadata.asn%3AAS$click.value2$</link>
+          </condition>
+          <condition field="AS Name"></condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Cowrie latest file transfers (deduplicated, excluding up.txt and google)</title>
+        <search>
+          <query>index=honeypots source=cowrie eventid="cowrie.session.file_download" destfile!="/tmp/up.txt" destfile!="/tmp/index.html"
+| table src_ip, session, url, shasum, host, _time, message, destfile
+| join 
+    [search index=honeypots eventid="cowrie.session.file_download" 
+     | table shasum
+     | stats count by shasum ]
+| join session 
+    [search index=honeypots eventid="cowrie.login.success"
+    |  table session, username, password]
+| dedup shasum sortby - _time
+| eval Time=strftime(_time,"%d.%m.%y %H:%M:%S")
+| rename src_ip as "Source IP" shasum as "SHA256 Hash" destfile AS "Target Filename"
+| table Time, "Source IP", "SHA256 Hash", "Target Filename"
+| sort - Time</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="Time"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="SHA256 Hash">
+            <link target="_blank">https://www.virustotal.com/gui/file/$click.value2$/detection</link>
+          </condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>ADBHoney latest file transfers</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/ADBHoney/logs/adbhoney.json"
+| spath eventid
+| search eventid="adbhoney.session.file_upload"
+| dedup shasum
+| eval Time=strftime(_time,"%d.%m.%y %H:%M:%S")
+| rename src_ip as "Source IP" shasum as "SHA256 Hash"
+| table Time, "Source IP", "SHA256 Hash"</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <drilldown>
+          <condition field="Time"></condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="SHA256 Hash">
+            <link target="_blank">https://www.virustotal.com/gui/file/$click.value2$/detection</link>
+          </condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CameraObscura latest file transfers</title>
+        <search>
+          <query>index=honeypots source="/home/skringle/CameraObscura/obscura.json"  eventId="obscura.http.upload"
+| table src_ip, session, url, shasum, host, _time, message
+| join shasum
+    [search index=honeypots source="/home/skringle/CameraObscura/obscura.json"  eventId="obscura.http.upload"
+     | table shasum
+     | stats count by shasum ]
+| dedup shasum sortby - _time
+| table _time, count, shasum, src_ip, 
+| rename count AS "# times seen" shasum AS "SHA256 Hash" _time AS "Timestamp" src_ip AS "Source IP" | eval Time=strftime(Timestamp,"%d.%m.%y %H:%M:%S") | fields - Timestamp 
+| table Time, "Source IP", "SHA256 Hash", 
+| sort - Time</query>
+          <earliest>$sharetime.earliest$</earliest>
+          <latest>$sharetime.latest$</latest>
+        </search>
+        <option name="count">10</option>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <condition field="URL"></condition>
+          <condition field="SHA256 Hash">
+            <link target="_blank">https://www.virustotal.com/gui/file/$click.value2$/detection</link>
+          </condition>
+          <condition field="Source IP">
+            <link target="_blank">https://www.shodan.io/host/$click.value2$</link>
+          </condition>
+          <condition field="Sensor"></condition>
+          <condition field="Session"></condition>
+          <condition field="Time"></condition>
+        </drilldown>
+      </table>
+    </panel>
+  </row>
+</form>
